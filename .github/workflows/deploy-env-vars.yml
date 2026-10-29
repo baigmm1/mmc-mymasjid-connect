@@ -1,0 +1,128 @@
+# GitHub Actions Workflow - Deploy Environment Variables
+# This workflow deploys environment variables to Azure App Service
+# It can be triggered manually or as part of a deployment pipeline
+
+name: Deploy Environment Variables
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      force_update:
+        description: 'Force update existing variables'
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: string
+      force_update:
+        description: 'Force update existing variables'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      AZURE_CREDENTIALS:
+        required: true
+      AZURE_APP_NAME:
+        required: true
+      AZURE_RESOURCE_GROUP:
+        required: true
+
+jobs:
+  deploy-env-vars:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Verify Azure CLI
+        run: |
+          az --version
+          az account show
+
+      - name: Deploy Environment Variables (No Force Update)
+        if: ${{ !inputs.force_update }}
+        run: |
+          pwsh ./backend-api/deployment/deploy-env-vars.ps1 `
+            -Environment ${{ inputs.environment }} `
+            -AppName ${{ secrets.AZURE_APP_NAME }} `
+            -ResourceGroup ${{ secrets.AZURE_RESOURCE_GROUP }}
+        shell: pwsh
+
+      - name: Deploy Environment Variables (Force Update)
+        if: ${{ inputs.force_update }}
+        run: |
+          pwsh ./backend-api/deployment/deploy-env-vars.ps1 `
+            -Environment ${{ inputs.environment }} `
+            -AppName ${{ secrets.AZURE_APP_NAME }} `
+            -ResourceGroup ${{ secrets.AZURE_RESOURCE_GROUP }} `
+            -ForceUpdate
+        shell: pwsh
+
+      - name: Verify Deployment
+        run: |
+          echo "Environment variables deployed to ${{ inputs.environment }}"
+          echo "App Service: ${{ secrets.AZURE_APP_NAME }}"
+          echo "Resource Group: ${{ secrets.AZURE_RESOURCE_GROUP }}"
+          echo "Force Update: ${{ inputs.force_update }}"
+
+      - name: Wait for App Service Restart
+        run: |
+          echo "Waiting 30 seconds for App Service to restart..."
+          sleep 30
+
+      - name: Health Check
+        run: |
+          APP_URL="https://${{ secrets.AZURE_APP_NAME }}.azurewebsites.net"
+          echo "Checking health at: $APP_URL/api/v1/health"
+          
+          # Wait up to 2 minutes for the app to be healthy
+          MAX_ATTEMPTS=12
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Health check attempt $ATTEMPT of $MAX_ATTEMPTS..."
+            
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/v1/health" || echo "000")
+            
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✓ Health check passed!"
+              curl -s "$APP_URL/api/v1/health" | jq .
+              exit 0
+            fi
+            
+            echo "Health check returned: $RESPONSE (expected 200)"
+            
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "Waiting 10 seconds before retry..."
+              sleep 10
+            fi
+          done
+          
+          echo "⚠️ Health check did not pass after $MAX_ATTEMPTS attempts"
+          echo "Manual verification recommended"
+          exit 1
+
+      - name: Azure Logout
+        if: always()
+        run: az logout

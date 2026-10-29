@@ -1,0 +1,113 @@
+﻿<html xmlns="http://www.w3.org/1999/xhtml" >
+<head>
+    <title>Donation Receipt</title>    
+    <!--{HEADERTEXT} -->
+</head>
+<body style="font-family: Verdana; font-size: 12pt;"   >
+    <table style="border: 1px solid #003300; width:100%; background-color: #E7EFE8; " cellpadding="5" cellspacing="0">
+        <tr style="background-color: #003300; color: #FFFFFF;  ">
+            <td style="width: 70px; background-color: white;border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #003300;" align="center">
+                <img alt="" src="https://static.wixstatic.com/media/39e359_5341fccc04744fceabe10298b7391b93~mv2.png" style="width: 70px; height: 70px" />
+            </td>
+            <td style="width: 954px; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #003300;" valign="top" align="left" colspan="2">
+                <div style="font-size: 14pt; font-weight: bold">
+                    &nbsp;<b>Muslim Association of Lehigh Valley</b></div>
+                <div>
+                </div>
+                <div style="font-size: 10pt; font-weight: bold">
+                    &nbsp;1988 Schadt Ave. Whitehall PA 18052</div>
+                <div style="font-size: 10pt; font-weight: bold">
+                    &nbsp;Tel: 610-799-6224 / Web : www.malv.org</div>
+            </td>
+        </tr>
+        <tr>
+        <td colspan="3">&nbsp;</td>
+        </tr>     
+        <tr>
+        <td colspan="3">
+            <div>
+                <b>Thank You for Your Donation!</b>
+                <br />
+                <br />
+                Donation Receipt Id : {{ReceiptId}} - Date : {{TransactionDate}}<br />
+                <b>{{DonorFullName}}</b><br />
+                {{DonorAddress}}<br />
+                <br />
+                <br />
+                Assalamu Alaikum {{NamewithPrefix}}
+                <br />                
+                <br />
+                On behalf of the Muslim Association of Lehigh Valley, we express our sincere appreciation for your continuous support to our programs and projects. Your generous donation will make a true difference in the community.
+                <br />                              
+            </div>
+            <div>
+                <div style="text-align:center">
+                    <br />
+                    <b>Details of your Donation</b>
+                    <br />
+                    <br />
+                </div>
+                <table border="1" cellpadding="5" cellspacing="1" align="center" style="width: 90%" >
+                <thead>
+                    <tr>
+                        <th width="80%" align="left">Description</th>
+                        <th width="20%" align="right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!--{DONATIONDETAILS}-->
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th align="left">Total</th>
+                        <th align="right">{{TotalAmount}}</th>
+                    </tr>
+                </tfoot>
+                </table>                
+            </div>
+            
+            <div>
+                <br />
+                Please treat this email as a donation receipt <B>which notes that no goods or services were provided in return for the donation</B>.  
+                E-mailing receipts is faster, saves MALV much needed funds and is more environment-friendly. 
+                However, at the end of the year you'll receive your Annual Donation Statement by eMail and US Mail, which can be used for filing your Taxes.
+                <br />
+                <br />
+                We will highly appreciate if you please update your contact information with any changes in your Mail or E-Mail addresses, to ensure that your Annual Donation Statement, is mailed out at your current address. 
+                Please use your Donor ID {{DonorID}} in all your communications.  
+                <br />
+                <br />
+                If you've any questions please stop by the MALV office or send an email to {{TreasurerEMail}}.
+                <br />
+                <br />
+                Thank You
+                <br />
+                <br />
+                <br />
+                <B>{{TreasurerName}}</B><br />
+                Treasurer
+            </div>
+        </td>
+        </tr>              
+        <tr>
+        <td colspan="3"><!--{BODYTEXT}--></td>
+        </tr>        
+        <tr>
+            <td colspan="3">
+                Muslim Association of Lehigh Valley (Tax Id# 23-220-0400) is registered as a Non-Profit Organization under IRS section 501(c)(3) and is classified as a public charity. All your contributions are tax deductible under section 170 of the Code.
+            </td>
+        </tr>
+        <tr>
+            <td colspan="3">
+                We will not sell, share or trade our donors' names or personal information with any other entity, nor send mailings to our donors on behalf of other organizations. This policy applies to all information received by Muslim Association of Lehigh Valley, both online and offline, on any Platform ("Platform", includes the Muslim Association of Lehigh Valley website and mobile applications), as well as any electronic, written, or oral communications. 
+            </td>
+        </tr>
+        <tr>
+        <td colspan="3" style="font-size:smaller; background-color: #003300; color: #FFFFFF;" align="center">
+        Muslim Association of Lehigh Valley is a 501(c)3 non profit organization. Federal Tax ID# 23-2200400.
+        </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

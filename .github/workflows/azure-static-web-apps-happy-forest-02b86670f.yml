@@ -1,0 +1,129 @@
+name: Azure Static Web Apps Frontend - mc-frontend-donate-client (develop)
+
+on:
+  push:
+    branches:
+      - develop
+env:
+  AZURE_WEBAPP_NAME: "mc-frontend-donate-client" # set this to your application's name
+  AZURE_WEBAPP_PACKAGE_PATH: "." # set this to the path of your web app project, defaults to the repository root
+  AZURE_RESOURCE_GROUP: "rg-dev-mcmc" # set this to your resource group
+  NODE_VERSION: "20.x"
+  WORKING_DIRECTORY: "frontend-ui/mcdonate-client"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_changed: ${{ steps.check_frontend_changes.outputs.frontend }}
+      #frontend_changed: true
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    permissions:
+      contents: read #This is required for actions/checkout
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for comparison
+
+      - name: Check for frontend changes
+        id: check_frontend_changes
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event.before }} # Compare with previous commit in same branch
+          filters: |
+            frontend:
+              - 'frontend-ui/mcdonate-client/**'
+
+      - name: Set up Node.js version
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        run: npm install
+
+      - name: Build the app
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        env:
+          VITE_API_BASE_URL: https://mc-backend-service-api-ehebbyg5f5eddbdr.eastus-01.azurewebsites.net/api/v1
+          VITE_ANONYMOUS_DONORID: 10001
+          VITE_ENABLE_ANALYTICS: false
+          VITE_ENVIRONMENT: development
+          VITE_ONLINE_CURRENCY: usd
+          VITE_ONLINE_LOCALE: en-US
+          VITE_ONLINE_FEE_PERCENTAGE: 0.0325
+          VITE_ONLINE_FEE_FIXED_AMOUNT_CENTS: 50
+          VITE_ONLINE_FEE_DONATION_TYPE: 99999
+          VITE_ONLINE_FEE_DONATION_TYPE_DESCRIPTION: Processing Fee Contribution
+          VITE_ONLINE_FEE_MESSAGE: I wish to contribute 3.25% + 50 cents towards credit card processing fees charged by the credit card provider
+          VITE_ONLINE_ANONYMOUS_MESSAGE: I would like to make an anonymous donation.
+          VITE_ONLINE_ENABLE_ANONYMOUS: false
+          VITE_AUTH0_DOMAIN: "masjidconnect.auth0.com"
+          VITE_AUTH0_CLIENT_ID: "dOspMrrLpCYxd7bx9BWx9rHyJL0vPzwa"
+          #VITE_AUTH0_REDIRECT_URI: "https://happy-forest-02b86670f.4.azurestaticapps.net/callback"
+          VITE_AUTH0_AUDIENCE: "https://api.mymasjidconnect.org"
+          VITE_AUTH0_ENABLED: true
+        run: npm run build
+
+      - name: Upload artifact for deployment job
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.AZURE_WEBAPP_NAME }}-nodejs-app
+          path: ${{ env.WORKING_DIRECTORY }}/dist
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: needs.build.outputs.frontend_changed == 'true'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          lfs: false
+
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.AZURE_WEBAPP_NAME }}-nodejs-app
+          path: frontend-ui/mcdonate-client/dist
+
+      - name: Deploy
+        id: builddeploy
+        env:
+          VITE_API_BASE_URL: https://mc-backend-service-api-ehebbyg5f5eddbdr.eastus-01.azurewebsites.net/api/v1
+          VITE_ANONYMOUS_DONORID: 10001
+          VITE_ENABLE_ANALYTICS: false
+          VITE_ENVIRONMENT: development
+          VITE_ONLINE_CURRENCY: usd
+          VITE_ONLINE_LOCALE: en-US
+          VITE_ONLINE_FEE_PERCENTAGE: 0.0325
+          VITE_ONLINE_FEE_FIXED_AMOUNT_CENTS: 50
+          VITE_ONLINE_FEE_DONATION_TYPE: 99999
+          VITE_ONLINE_FEE_DONATION_TYPE_DESCRIPTION: Processing Fee Contribution
+          VITE_ONLINE_FEE_MESSAGE: I wish to contribute 3.25% + 50 cents towards credit card processing fees charged by the credit card provider
+          VITE_ONLINE_ANONYMOUS_MESSAGE: I would like to make an anonymous donation.
+          VITE_ONLINE_ENABLE_ANONYMOUS: false
+          VITE_AUTH0_DOMAIN: "masjidconnect.auth0.com"
+          VITE_AUTH0_CLIENT_ID: "dOspMrrLpCYxd7bx9BWx9rHyJL0vPzwa"
+          #VITE_AUTH0_REDIRECT_URI: "https://happy-forest-02b86670f.4.azurestaticapps.net/callback"
+          VITE_AUTH0_AUDIENCE: "https://api.mymasjidconnect.org"
+          VITE_AUTH0_ENABLED: true
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_HAPPY_FOREST_02B86670F }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          action: "upload"
+          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
+          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
+          app_location: "frontend-ui/mcdonate-client" # App source code path
+          api_location: "" # Api source code path - optional
+          output_location: "dist" # Built app content directory - optional
+          skip_app_build: false # Skip build since we're using pre-built artifact
+          ###### End of Repository/Build Configurations ######

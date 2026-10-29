@@ -1,0 +1,52 @@
+name: Azure Static Web Apps Frontend - donate-redirect (develop/production)
+
+on:
+  push:
+    branches:
+      - develop
+env:
+  AZURE_WEBAPP_NAME: "malvdonate-mmc" # set this to your application's name
+  AZURE_WEBAPP_PACKAGE_PATH: "." # set this to the path of your web app project, defaults to the repository root
+  AZURE_RESOURCE_GROUP: "rg-prd-malv2" # set this to your resource group
+  NODE_VERSION: "20.x"
+  WORKING_DIRECTORY: "frontend-ui/donate-redirect"
+
+jobs:
+  build_and_deploy_job:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_changed: ${{ steps.check_frontend_changes.outputs.frontend }}
+      #frontend_changed: true
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    permissions:
+      contents: read #This is required for actions/checkout
+    name: Build and Deploy Job
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for comparison
+      - name: Check for frontend changes
+        id: check_frontend_changes
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event.before }} # Compare with previous commit in same branch
+          filters: |
+            frontend:
+              - 'frontend-ui/donate-redirect/**'
+      - name: Build And Deploy
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        id: builddeploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DELIGHTFUL_FOREST_0DDEF9E0F }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          action: "upload"
+          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
+          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
+          app_location: "frontend-ui/donate-redirect" # App source code path
+          api_location: "" # Api source code path - optional
+          output_location: "/" # Built app content directory - optional
+          ###### End of Repository/Build Configurations ######

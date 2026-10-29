@@ -1,0 +1,50 @@
+# Core FastAPI web framework and ASGI server
+fastapi[all]
+uvicorn
+gunicorn
+
+# Data validation and serialization
+pydantic
+pydantic-settings
+
+# Testing framework and utilities
+pytest
+pytest-cov
+httpx
+pytest-asyncio
+
+# Environment variable management
+python-dotenv
+
+# Structured JSON logging
+python-json-logger
+
+# Database - SQLAlchemy ORM with async support
+SQLAlchemy[asyncio]
+aioodbc  # Async ODBC driver for SQL Server
+
+# Azure authentication and managed identity
+azure-identity
+
+# Async context switching for ODBC
+greenlet
+
+# Database migrations
+alembic
+
+# Stripe API integration
+stripe==14.3.0
+
+# SendGrid email provider
+sendgrid
+
+# HTML parsing for prayer times
+beautifulsoup4
+
+# Auth0 JWT authentication
+PyJWT[crypto]
+python-jose[cryptography]
+
+# Timezone handling
+pytz
+tzdata  # Required for zoneinfo on Windows

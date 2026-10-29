@@ -1,0 +1,265 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
+
+name: Azure Python Backend - Deploy API
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_PACKAGE_PATH: "." # set this to the path of your web app project, defaults to the repository root
+  PYTHON_VERSION: "3.13"
+  STARTUP_COMMAND: "startup.sh"
+  WORKING_DIRECTORY: "backend-api"
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      azure_webapp_name: ${{ steps.set_env.outputs.azure_webapp_name }}
+      azure_resource_group: ${{ steps.set_env.outputs.azure_resource_group }}
+      environment_name: ${{ steps.set_env.outputs.environment_name }}
+      client_id_secret: ${{ steps.set_env.outputs.client_id_secret }}
+      tenant_id_secret: ${{ steps.set_env.outputs.tenant_id_secret }}
+      subscription_id_secret: ${{ steps.set_env.outputs.subscription_id_secret }}
+
+    steps:
+      - name: Set environment based on branch
+        id: set_env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "azure_webapp_name=mc-backend-service-api-prd" >> $GITHUB_OUTPUT
+            echo "azure_resource_group=rg-prd-pymc" >> $GITHUB_OUTPUT
+            echo "environment_name=production" >> $GITHUB_OUTPUT
+            echo "client_id_secret=AZURE_GITHUB_CLIENTID" >> $GITHUB_OUTPUT
+            echo "tenant_id_secret=AZURE_GITHUB_TENANTID" >> $GITHUB_OUTPUT
+            echo "subscription_id_secret=AZURE_GITHUB_SUBSCRIPTIONID" >> $GITHUB_OUTPUT
+          else
+            echo "azure_webapp_name=mc-backend-service-api" >> $GITHUB_OUTPUT
+            echo "azure_resource_group=rg-dev-pymc" >> $GITHUB_OUTPUT
+            echo "environment_name=dev" >> $GITHUB_OUTPUT
+            echo "client_id_secret=AZURE_GITHUB_CLIENTID" >> $GITHUB_OUTPUT
+            echo "tenant_id_secret=AZURE_GITHUB_TENANTID" >> $GITHUB_OUTPUT
+            echo "subscription_id_secret=AZURE_GITHUB_SUBSCRIPTIONID" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      backend_changed: ${{ steps.check_backend_changes.outputs.backend }}
+      #backend_changed: true
+      skip_environment: true
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    permissions:
+      contents: write # Required for committing build version changes
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for comparison
+          token: ${{ secrets.GITHUB_TOKEN }} # Use GITHUB_TOKEN for push access
+      - name: Check for backend changes
+        id: check_backend_changes
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event.before }} # Compare with previous commit in same branch
+          filters: |
+            backend:
+              - 'backend-api/**'
+
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        if: steps.check_backend_changes.outputs.backend == 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Create a virtual environment & install dependencies
+        if: steps.check_backend_changes.outputs.backend == 'true'
+        run: |
+          python -m venv antenv
+          source antenv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Increment build version
+        if: steps.check_backend_changes.outputs.backend == 'true'
+        run: |
+          source antenv/bin/activate
+          echo "Current build version before increment:"
+          python increment_build.py
+
+          echo ""
+          echo "Incrementing build version..."
+          python increment_build.py increment
+
+          echo ""
+          echo "Build version incremented successfully!"
+
+      - name: Commit build version changes
+        if: steps.check_backend_changes.outputs.backend == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add build_info.json
+          git diff --staged --quiet || git commit -m "chore: increment build version to $(jq -r '.build_number' build_info.json) [skip ci]"
+
+      - name: Push build version changes
+        if: steps.check_backend_changes.outputs.backend == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+
+      - name: Upload artifact for deployment jobs
+        if: steps.check_backend_changes.outputs.backend == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.setup.outputs.azure_webapp_name }}-python-app
+          path: |
+            backend-api/
+            !backend-api/.github/
+            !backend-api/.specify/
+            !backend-api/__pycache__/
+            !backend-api/.pytest_cache/
+            !backend-api/**/__pycache__/
+            !backend-api/**/*.pyc
+          retention-days: 1
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [setup, build]
+    if: needs.build.outputs.backend_changed == 'true'
+    environment: ${{ needs.setup.outputs.environment_name }}
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.setup.outputs.azure_webapp_name }}-python-app
+          path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
+      - name: Debug - Verify secret resolution
+        run: |
+          echo "Environment name: ${{ needs.setup.outputs.environment_name }}"
+          echo "Client ID secret name: ${{ needs.setup.outputs.client_id_secret }}"
+          echo "Tenant ID secret name: ${{ needs.setup.outputs.tenant_id_secret }}"
+          echo "Subscription ID secret name: ${{ needs.setup.outputs.subscription_id_secret }}"
+
+          # Show first 8 characters of each secret to verify they're being picked up
+          CLIENT_ID="${{ secrets[needs.setup.outputs.client_id_secret] }}"
+          TENANT_ID="${{ secrets[needs.setup.outputs.tenant_id_secret] }}"
+          SUBSCRIPTION_ID="${{ secrets[needs.setup.outputs.subscription_id_secret] }}"
+
+          echo "Client ID (first 8 chars): ${CLIENT_ID:0:8}..."
+          echo "Tenant ID (first 8 chars): ${TENANT_ID:0:8}..."
+          echo "Subscription ID (first 8 chars): ${SUBSCRIPTION_ID:0:8}..."
+
+          # Check if secrets are empty
+          if [ -z "$CLIENT_ID" ]; then
+            echo "ERROR: Client ID is empty!"
+          fi
+          if [ -z "$TENANT_ID" ]; then
+            echo "ERROR: Tenant ID is empty!"
+          fi
+          if [ -z "$SUBSCRIPTION_ID" ]; then
+            echo "ERROR: Subscription ID is empty!"
+          fi
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets[needs.setup.outputs.client_id_secret] }}
+          tenant-id: ${{ secrets[needs.setup.outputs.tenant_id_secret] }}
+          subscription-id: ${{ secrets[needs.setup.outputs.subscription_id_secret] }}
+
+      - name: "Deploy Environment Variables"
+        if: needs.build.outputs.skip_environment != 'true'
+        run: |
+          echo "Deploying environment variables for ${{ needs.setup.outputs.environment_name }}..."
+
+          # Check directory structure and navigate accordingly
+          if [ -d "backend-api" ]; then
+            cd backend-api
+          fi
+
+          # Check if PowerShell script exists
+          if [ -f "./deployment/deploy-env-vars.ps1" ]; then
+            pwsh ./deployment/deploy-env-vars.ps1 \
+              -Environment ${{ needs.setup.outputs.environment_name }} \
+              -AppName ${{ needs.setup.outputs.azure_webapp_name }} \
+              -ResourceGroup ${{ needs.setup.outputs.azure_resource_group }}
+            echo "Environment variables deployed successfully."
+          else
+            echo "Warning: deploy-env-vars.ps1 not found"
+            echo "Current directory: $(pwd)"
+            find . -name "deploy-env-vars.ps1" -type f
+          fi
+
+      - name: "Stop app to allow clean deployment"
+        if: needs.build.outputs.skip_environment != 'true'
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            echo "Stopping app to ensure clean deployment..."
+            az webapp stop --resource-group ${{ needs.setup.outputs.azure_resource_group }} --name ${{ needs.setup.outputs.azure_webapp_name }}
+            echo "App stopped."
+
+      - name: "Create deployment package"
+        run: |
+          echo "Creating deployment package..."
+
+          # Ensure startup.sh has executable permissions before zipping (if needed later)
+          chmod +x startup.sh 2>/dev/null || true
+
+          # Include the virtual environment in the package
+          zip -r deploy.zip . -x "*.git*" "*__pycache__/*" "*.pytest_cache/*" "*.pyc"
+          echo "Package created: deploy.zip"
+          ls -lh deploy.zip
+
+      - name: "Configure Oryx build setting (Disable Oryx build)"
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            echo "Disable Oryx build deployment..."
+
+            # Disable Oryx build on Azure
+            az webapp config appsettings set --resource-group ${{ needs.setup.outputs.azure_resource_group }} --name ${{ needs.setup.outputs.azure_webapp_name }} \
+              --settings \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+              ENABLE_ORYX_BUILD=false
+
+            # Set startup command and always-on setting
+            az webapp config set --resource-group ${{ needs.setup.outputs.azure_resource_group }} --name ${{ needs.setup.outputs.azure_webapp_name }} \
+              --startup-file "startup.sh" \
+              --always-on true            
+
+            echo "Configured Oryx build disabled and Always On enabled"
+
+      - name: "Deploy to Azure Web App"
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: ${{ needs.setup.outputs.azure_webapp_name }}
+          package: deploy.zip
+          slot-name: "Production"
+
+      - name: "Start app after deployment"
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            echo "Starting app..."
+            az webapp start --resource-group ${{ needs.setup.outputs.azure_resource_group }} --name ${{ needs.setup.outputs.azure_webapp_name }}
+            echo "Deployment complete!"
+            echo "Deployed to: https://${{ needs.setup.outputs.azure_webapp_name }}.azurewebsites.net"
+            echo "Environment: ${{ needs.setup.outputs.environment_name }}"
+            echo "Branch: ${{ github.ref_name }}"

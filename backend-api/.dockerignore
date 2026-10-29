@@ -1,0 +1,93 @@
+# Python
+
+**pycache**/
+_.py[cod]
+_$py.class
+_.so
+.Python
+_.egg-info/
+dist/
+build/
+\*.egg
+.eggs/
+
+# Virtual environments
+
+venv/
+env/
+ENV/
+antenv/
+.venv/
+
+# Testing
+
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+\*.cover
+
+# IDE
+
+.vscode/
+.idea/
+_.swp
+_.swo
+\*~
+.DS_Store
+
+# Logs
+
+_.log
+logs/
+_.out
+
+# Environment files
+
+.env
+.env.\*
+!.env.production.example
+
+# Documentation (build artifacts, not source)
+
+docs/\_build/
+site/
+
+# Git
+
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+
+.github/
+.gitlab-ci.yml
+
+# Specifications and planning docs (optional - comment out if you want these deployed)
+
+specifications/
+START_HERE_PHASE_1.md
+PHASE_1_COMPLETION_REPORT.md
+README-TESTING.md
+GUIDELINES.md
+GUIDELINES_IMPLEMENTATION.md
+
+# Test files (no need to deploy tests to production)
+
+tests/
+pytest.ini
+run-tests.ps1
+conftest.py
+
+# Development scripts
+
+startup.ps1
+startup.sh
+
+# Misc
+
+_.bak
+_.tmp
+.specify/

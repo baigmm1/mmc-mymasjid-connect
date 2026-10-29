@@ -1,0 +1,23 @@
+# Environment Configuration Files - .gitignore
+# Place this in backend-api/deployment/env-configs/.gitignore
+
+# Ignore local override files
+env.local.json
+*.local.json
+
+# Ignore backup files
+*.backup.json
+*.bak
+
+# Ignore any files with "secret" or "private" in the name
+*secret*.json
+*private*.json
+
+# You may want to ignore actual production configs if they contain sensitive URLs
+# Uncomment these lines if needed:
+# env.production.json
+# env.staging.json
+
+# Keep template and documentation
+!env.template.json
+!README.md

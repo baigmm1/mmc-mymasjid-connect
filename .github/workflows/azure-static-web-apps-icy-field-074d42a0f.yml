@@ -1,0 +1,124 @@
+name: Azure Static Web Apps Frontend - mc-frontend-donate-kiosk (develop)
+
+on:
+  push:
+    branches:
+      - develop
+
+env:
+  AZURE_WEBAPP_NAME: "mc-frontend-donate-kiosk" # set this to your application's name
+  AZURE_WEBAPP_PACKAGE_PATH: "." # set this to the path of your web app project, defaults to the repository root
+  AZURE_RESOURCE_GROUP: "rg-dev-mcmc" # set this to your resource group
+  NODE_VERSION: "20.x"
+  WORKING_DIRECTORY: "frontend-ui/mcdonate-kiosk"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_changed: ${{ steps.check_frontend_changes.outputs.frontend }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    permissions:
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for comparison
+
+      - name: Check for frontend changes
+        id: check_frontend_changes
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event.before }} # Compare with previous commit in same branch
+          filters: |
+            frontend:
+              - 'frontend-ui/mcdonate-kiosk/**'
+
+      - name: Set up Node.js version
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        run: npm install
+
+      - name: Build the app
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        env:
+          VITE_API_URL: "https://mc-backend-service-api-ehebbyg5f5eddbdr.eastus-01.azurewebsites.net/api/v1"
+          VITE_ANONYMOUS_DONORID: 10001
+          VITE_KIOSK_CURRENCY: usd
+          VITE_KIOSK_LOCALE: en-US
+          VITE_KIOSK_IDLE_TIMEOUT_SECONDS: 60
+          VITE_KIOSK_FEE_PERCENTAGE: 0.0325
+          VITE_KIOSK_FEE_FIXED_AMOUNT_CENTS: 50
+          VITE_KIOSK_FEE_DONATION_TYPE: 99999
+          VITE_KIOSK_FEE_DONATION_TYPE_DESCRIPTION: "Processing Fee Contribution"
+          VITE_KIOSK_FEE_MESSAGE: "I wish to contribute 3.25% + 50 cents towards credit card processing fees charged by the credit card provider"
+          VITE_KIOSK_ANONYMOUS_MESSAGE: "I would like to make an anonymous donation."
+        run: npm run build
+
+      - name: Upload artifact for deployment jobs
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.AZURE_WEBAPP_NAME }}-nodejs-app
+          path: ${{ env.WORKING_DIRECTORY }}/dist
+          retention-days: 1
+  deploy:
+    runs-on: ubuntu-latest
+    name: Build and Deploy Job
+    needs: build
+    if: needs.build.outputs.frontend_changed == 'true'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          lfs: false
+
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.AZURE_WEBAPP_NAME }}-nodejs-app
+          path: frontend-ui/mcdonate-kiosk/dist
+
+      - name: Copy development environment file
+        if: steps.check_frontend_changes.outputs.frontend == 'true'
+        run: |
+          echo "Using .env.development for develop branch"
+          cp .env.development .env
+          echo "Environment file contents:"
+          cat .env
+
+      - name: Build And Deploy
+        id: builddeploy
+        env:
+          VITE_API_URL: "https://mc-backend-service-api-ehebbyg5f5eddbdr.eastus-01.azurewebsites.net/api/v1"
+          VITE_ANONYMOUS_DONORID: 10001
+          VITE_KIOSK_CURRENCY: usd
+          VITE_KIOSK_LOCALE: en-US
+          VITE_KIOSK_IDLE_TIMEOUT_SECONDS: 60
+          VITE_KIOSK_FEE_PERCENTAGE: 0.0325
+          VITE_KIOSK_FEE_FIXED_AMOUNT_CENTS: 50
+          VITE_KIOSK_FEE_DONATION_TYPE: 99999
+          VITE_KIOSK_FEE_DONATION_TYPE_DESCRIPTION: "Processing Fee Contribution"
+          VITE_KIOSK_FEE_MESSAGE: "I wish to contribute 3.25% + 50 cents towards credit card processing fees charged by the credit card provider"
+          VITE_KIOSK_ANONYMOUS_MESSAGE: "I would like to make an anonymous donation."
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_FIELD_074D42A0F }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          action: "upload"
+          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
+          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
+          app_location: "frontend-ui/mcdonate-kiosk" # App source code path
+          api_location: "" # Api source code path - optional
+          output_location: "dist" # Built app content directory - optional
+          skip_app_build: false # Skip build since we're using pre-built artifact
+          ###### End of Repository/Build Configurations ######
