@@ -4,8 +4,6 @@
 #
 #    pip-compile --output-file=requirements.txt requirements.in
 #
---trusted-host dsc.emn.com
-
 aioodbc==0.5.0
     # via -r requirements.in
 alembic==1.17.2
@@ -37,11 +35,6 @@ click==8.2.1
     # via
     #   rich-toolkit
     #   typer
-    #   uvicorn
-colorama==0.4.6
-    # via
-    #   click
-    #   pytest
     #   uvicorn
 coverage[toml]==7.13.1
     # via pytest-cov
@@ -151,10 +144,11 @@ pygments==2.19.2
     # via
     #   pytest
     #   rich
-pyjwt[crypto]==2.10.1
+pyjwt[crypto]==2.15.0
     # via
     #   -r requirements.in
     #   msal
+    #   pyjwt
 pyodbc==5.3.0
     # via aioodbc
 pytest==9.0.2
@@ -222,7 +216,7 @@ sqlalchemy[asyncio]==2.0.41
     #   alembic
 starlette==0.47.3
     # via fastapi
-stripe==14.1.0
+stripe==14.3.0
     # via -r requirements.in
 typer==0.21.0
     # via
@@ -261,6 +255,8 @@ uvicorn[standard]==0.35.0
     #   fastapi
     #   fastapi-cli
     #   fastapi-cloud-cli
+uvloop==0.23.0
+    # via uvicorn
 watchfiles==1.1.1
     # via uvicorn
 websockets==15.0.1
